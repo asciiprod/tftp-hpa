@@ -1,0 +1,83 @@
+#!/usr/bin/make -f
+#
+# Copyright 2003 - 2014 Ron Lee.
+
+SHELL = /bin/bash
+
+export DH_OPTIONS
+
+NUM_CPUS = $(shell getconf _NPROCESSORS_ONLN 2>/dev/null)
+PARALLEL = $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+NJOBS    = -j$(or $(PARALLEL),$(NUM_CPUS),1)
+
+DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+
+clean:
+	dh_testdir
+	$(MAKE) spotless
+	$(RM) *-stamp
+	dh_clean
+	debconf-updatepo
+
+
+configure: configure.in aclocal.m4
+	dh_testdir
+	$(MAKE) autoconf
+
+config.status: configure
+	dh_testdir
+	./configure --host=$(DEB_HOST_GNU_TYPE)   \
+		    --build=$(DEB_BUILD_GNU_TYPE) \
+		    --prefix=/usr                 \
+		    --without-readline
+
+
+build: build-arch
+build-arch: build-arch-stamp
+build-indep:
+
+build-arch-stamp: config.status
+	dh_testdir
+	$(MAKE) $(NJOBS) all
+	touch $@
+
+
+install: install-arch
+install-arch: build-arch install-arch-stamp
+install-indep:
+
+install-arch-stamp: build-arch-stamp
+	dh_testdir
+	dh_testroot
+	dh_prep
+	$(MAKE) install INSTALLROOT=$(CURDIR)/debian/tmp
+	dh_install
+	dh_installinit
+	dh_installexamples
+	touch $@
+
+
+binary: binary-arch
+binary-indep:
+
+binary-arch: install-arch
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs
+	dh_installdocs
+	dh_installdebconf
+	dh_strip --dbg-package=tftp-hpa-dbg
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+
+.PHONY: clean build build-arch build-indep \
+	install install-arch install-indep \
+	binary binary-arch binary-indep
