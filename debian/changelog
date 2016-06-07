@@ -1,3 +1,10 @@
+tftp-hpa (5.2+20150808-1+h1) unstable; urgency=medium
+
+  * Add fortify strcpy patch from Fedora
+  * Add destructive ipv4 patch from bastelfreak
+
+ -- Markus Schade <markus.schade@gmail.com>  Tue, 07 Jun 2016 20:33:29 +0200
+
 tftp-hpa (5.2+20150808-1) unstable; urgency=medium
 
   * Canonicalize all the addresses.  This avoids the situation of trying to

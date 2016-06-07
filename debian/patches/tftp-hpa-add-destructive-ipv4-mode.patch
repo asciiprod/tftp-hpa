@@ -1,0 +1,81 @@
+--- a/tftpd/tftpd.c
++++ b/tftpd/tftpd.c
+@@ -111,6 +111,9 @@
+ static struct rule *rewrite_rules = NULL;
+ #endif
+ 
++static int selfdestruct_if_ipv4addr_in_hex_matches_filename = 0;
++static int selfdestruct(const char *filename);
++
+ int tftp(struct tftphdr *, int);
+ static void nak(int, const char *);
+ static void timer(int);
+@@ -179,6 +182,25 @@
+ }
+ #endif
+ 
++static int selfdestruct(const char *filename)
++{
++    /* not IPv4 */
++    if (from.sa.sa_family != AF_INET) {
++        return 0;
++    }
++
++    char ip_str[9];
++    snprintf(ip_str, sizeof ip_str, "%08lX",
++             (unsigned long)ntohl(from.si.sin_addr.s_addr));
++
++    const char *tmp = strrchr(filename, '/');
++    if (tmp) {
++        filename = tmp + 1;
++    }
++
++    return !strcasecmp(filename, ip_str);
++}
++
+ /*
+  * Rules for locking files; return 0 on success, -1 on failure
+  */
+@@ -323,6 +345,7 @@
+ 
+ enum long_only_options {
+     OPT_VERBOSITY	= 256,
++    OPT_SELFDESTRUCT,
+ };
+     
+ static struct option long_options[] = {
+@@ -346,6 +369,8 @@
+     { "port-range",  1, NULL, 'R' },
+     { "map-file",    1, NULL, 'm' },
+     { "pidfile",     1, NULL, 'P' },
++    { "selfdestruct-if-ipv4addr-in-hex-matches-filename",
++                     0, NULL, OPT_SELFDESTRUCT },
+     { NULL, 0, NULL, 0 }
+ };
+ static const char short_options[] = "46cspvVlLa:B:u:U:r:t:T:R:m:P:";
+@@ -493,6 +518,9 @@
+             rewrite_file = optarg;
+             break;
+ #endif
++        case OPT_SELFDESTRUCT:
++            selfdestruct_if_ipv4addr_in_hex_matches_filename = 1;
++            break;
+         case 'v':
+             verbosity++;
+             break;
+@@ -1496,6 +1524,15 @@
+         }
+     }
+ 
++    if (mode == RRQ && selfdestruct_if_ipv4addr_in_hex_matches_filename &&
++        selfdestruct(filename)) {
++        syslog(LOG_NOTICE, "unlinking file \"%s\"\n", filename);
++        if (unlink(filename)) {
++            syslog(LOG_WARNING, "error unlinking \"%s\": %s\n",
++                   filename, strerror(errno));
++        }
++    }
++
+     if (fstat(fd, &stbuf) < 0)
+         exit(EX_OSERR);         /* This shouldn't happen */
+ 

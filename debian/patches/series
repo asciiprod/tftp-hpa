@@ -1,0 +1,2 @@
+tftp-hpa-0.49-fortify-strcpy-crash.patch
+tftp-hpa-add-destructive-ipv4-mode.patch
